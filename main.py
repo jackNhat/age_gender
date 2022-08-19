@@ -1,10 +1,10 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
 import math
 import os
 import argparse
 import datetime
+
+import torch
+import torch.nn as nn
 
 from dataset import make_frame, make_datasets
 from prune import WS, SNIP, GraSP, Lottery, FairGRAPE, Importance, Random, save_impt_df
@@ -38,7 +38,7 @@ def experiment(args):
     # Make dir for saving results
     save_dir = "trained_model/{}".format(prune_type)
     csv_savedir = "fair_dfs"
-    dirs = [csv_savedir, 'models', save_dir,"Images"]
+    dirs = [csv_savedir, 'models', save_dir,"data"]
     for path in dirs:
         if not os.path.exists(path):
             os.makedirs(path)
@@ -46,11 +46,11 @@ def experiment(args):
     print("Type:{}, Network:{}, Sparsity:{}, Dataset:{}".format(prune_type, network, prune_rate,dataset))
 
     csv_file = 'csv/FairFace.csv'
-    face_dir = 'Images'
+    face_dir = 'data/FairFace'
     if not os.path.exists(face_dir):
         download_dataset(dataset, face_dir)
     # Which variables are used in training.          
-    total_classes, output_cols_each_task,col_used_training = 18, [(0,18)], ['ageAndgender']
+    total_classes, output_cols_each_task,col_used_training = 14, [(0,14)], ['ageAndgender']
     # col_used includes a sensitive group label. It will be used for FairGRAPE pruning, but not in training stage.
     # When making the dataset we used col_used to that the sensitive group is included
     # when trainging the model for a given task we exclude sensitive group information
@@ -67,7 +67,10 @@ def experiment(args):
     save_model_iter = [] if isinstance(save_model_iter, int) else save_model_iter
     print(save_model_iter)
 
-    device = torch.device('cuda:0')
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+    else:
+        device = torch.device('cpu')
     criterion = nn.CrossEntropyLoss()
 
     torch.cuda.empty_cache()

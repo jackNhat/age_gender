@@ -1,2 +1,6 @@
 .vscode
+__pycache__
 data
+fair_dfs
+models
+trained_model

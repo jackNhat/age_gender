@@ -1,24 +1,27 @@
+import os
+from collections import defaultdict
+import shutil
+
 from torchvision import transforms, models
+import torchvision
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pandas as pd
 import numpy as np
 from PIL import Image
-import os
-from collections import defaultdict
-from dataset import split_image_name
 from tqdm import tqdm
-
 import gdown
 import zipfile
 from statistics import stdev
-import shutil
+
+from dataset import split_image_name
+
 
 # Initialize with  pretrained model
 
 
-def make_model(pruning=True, network="resnet34", dataset="FairFace", n_classes=18):
+def make_model(pruning=True, network="resnet34", n_classes=18):
     if network == "resnet34":
         model_conv = models.resnet34(
             pretrained=True) if pruning else torchvision.models.resnet34(pretrained=True)
@@ -252,7 +255,7 @@ def download_dataset(dataset, img_dir):
     url = urls[dataset]
 
     # Code from https://stackoverflow.com/questions/38511444/python-download-files-from-google-drive-using-url
-    output = 'Images/{}.zip'.format(dataset)
+    output = 'data/{}.zip'.format(dataset)
     gdown.download(url, output, quiet=False, fuzzy=True)
 
     # extract zip file

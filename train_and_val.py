@@ -1,14 +1,9 @@
+import datetime
+import copy
+
 import torch
 import torch.optim as optim
-import datetime
-from torchvision import models, transforms
-import copy
-import pandas as pd
-import numpy as np
 
-#############
-# Below are training sections
-#############
 
 def train(best_model, criterion, dataloaders, learning_rates = [1e-4,1e-5,1e-6], epoches = [13,3,3], col_used_training=[0,1,2], output_cols_each_task=[(0,7),(7,9),(9,18)]):
     best_acc, best_loss = 0, 100

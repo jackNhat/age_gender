@@ -1,12 +1,13 @@
+import os
+
 import PIL
 import torch
+from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import numpy as np
 from torchvision import transforms
 from imgaug import augmenters as iaa
 import dlib
-import os
-from torch.utils.data import Dataset, DataLoader
 
 # Ignore warnings
 import warnings
