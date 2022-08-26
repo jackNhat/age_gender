@@ -72,77 +72,77 @@ def add_imbalance(frame):
     return frame
 
 
-def make_frame(
-        csv,
-        face_dir,
-        train_pct=0.8,
-        imbalance=False):
-    frame = pd.read_csv(csv)
-    frame.head()
+# def make_frame(
+#         csv,
+#         face_dir,
+#         train_pct=0.8,
+#         imbalance=False):
+#     frame = pd.read_csv(csv)
+#     frame.head()
 
-    frame = relabel(frame)
+#     frame = relabel(frame)
 
-    if imbalance:
-        frame = add_imbalance(frame)
+#     if imbalance:
+#         frame = add_imbalance(frame)
 
-    # Change face_name_align if the images are now stored in a different dir
-    # Also make sure all faces are found and can be
-    if face_dir:
-        initial_rows = frame.shape[0]
-        faces = set(os.listdir(face_dir))
-        faces_found = 0
-        new_face_name = []
-        face_found_mask = []
-        for i in range(frame.shape[0]):
-            face_name_align = split_image_name(frame['face_name_align'][i])
-            face_found_mask.append(face_name_align in faces)
-            if face_name_align in faces:
-                new_path = os.path.join(face_dir, face_name_align)
-                try:
-                    faces_found += 1
-                    new_face_name.append(new_path)
-                except BaseException:
-                    continue
-        frame = frame[face_found_mask].reset_index(drop=True)
-        frame['face_name_align'] = new_face_name
-        print(
-            "{} out of {} faces are found in new dir!".format(
-                faces_found,
-                initial_rows))
+#     # Change face_name_align if the images are now stored in a different dir
+#     # Also make sure all faces are found and can be
+#     if face_dir:
+#         initial_rows = frame.shape[0]
+#         faces = set(os.listdir(face_dir))
+#         faces_found = 0
+#         new_face_name = []
+#         face_found_mask = []
+#         for i in range(frame.shape[0]):
+#             face_name_align = split_image_name(frame['face_name_align'][i])
+#             face_found_mask.append(face_name_align in faces)
+#             if face_name_align in faces:
+#                 new_path = os.path.join(face_dir, face_name_align)
+#                 try:
+#                     faces_found += 1
+#                     new_face_name.append(new_path)
+#                 except BaseException:
+#                     continue
+#         frame = frame[face_found_mask].reset_index(drop=True)
+#         frame['face_name_align'] = new_face_name
+#         print(
+#             "{} out of {} faces are found in new dir!".format(
+#                 faces_found,
+#                 initial_rows))
 
-    image_name_frame = frame['image_name'].apply(split_image_name)
-    image_names = image_name_frame.unique()
-    np.random.seed(42)
-    image_names = np.random.permutation(image_names)
+#     image_name_frame = frame['image_name'].apply(split_image_name)
+#     image_names = image_name_frame.unique()
+#     np.random.seed(42)
+#     image_names = np.random.permutation(image_names)
 
-    n_images = len(image_names)
-    n_train = int(train_pct * n_images)
-    n_val = int((n_images - n_train) / 2)
-    n_test = n_images - n_train - n_val
+#     # n_images = len(image_names)
+#     # n_train = int(train_pct * n_images)
+#     # n_val = int((n_images - n_train) / 2)
+#     # n_test = n_images - n_train - n_val
 
-    image_names_train = image_names[0:n_train]
-    image_names_val = image_names[n_train:n_train + n_val]
-    image_names_test = image_names[n_train + n_val:]
+#     # image_names_train = image_names[0:n_train]
+#     # image_names_val = image_names[n_train:n_train + n_val]
+#     # image_names_test = image_names[n_train + n_val:]
 
-    print(
-        "{} images: {} training, {} validation, {} test".format(
-            n_images,
-            len(image_names_train),
-            len(image_names_val),
-            len(image_names_test)))
+#     # print(
+#     #     "{} images: {} training, {} validation, {} test".format(
+#     #         n_images,
+#     #         len(image_names_train),
+#     #         len(image_names_val),
+#     #         len(image_names_test)))
 
-    train_frame = frame[image_name_frame.isin(
-        image_names_train)].reset_index(drop=True)
-    val_frame = frame[image_name_frame.isin(
-        image_names_val)].reset_index(drop=True)
-    test_frame = frame[image_name_frame.isin(
-        image_names_test)].reset_index(drop=True)
+#     # train_frame = frame[image_name_frame.isin(
+#     #     image_names_train)].reset_index(drop=True)
+#     # val_frame = frame[image_name_frame.isin(
+#     #     image_names_val)].reset_index(drop=True)
+#     # test_frame = frame[image_name_frame.isin(
+#     #     image_names_test)].reset_index(drop=True)
 
-    return {
-        'train': train_frame,
-        "val": val_frame,
-        "test": test_frame,
-        "all": frame}
+#     return {
+#         'train': train_frame,
+#         "val": val_frame,
+#         "test": test_frame,
+#         "all": frame}
 
 
 # Sometimes(0.5, ...) applies the given augmenter in 50% of all cases,
@@ -344,51 +344,123 @@ class FaceDataset(Dataset):
         return (image, torch.from_numpy(np.asarray(labels)))
 
 
-def make_datasets(
-        train_frame,
-        val_frame,
+# def make_datasets(
+#         train_frame,
+#         val_frame,
+#         give_dataloader=True,
+#         batch_size=64,
+#         col_used=None):
+#     device = torch.device('cuda:0')
+#     transform_train_data = transforms.Compose([
+#         ImgAugTransform(),
+#         lambda x: PIL.Image.fromarray(x),
+#         transforms.Resize((224, 224)),
+#         transforms.ToTensor(),
+#         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+#     ])
+
+#     transformed_train_dataset = FaceDataset(data_frame=train_frame,
+#                                             transform=transform_train_data,
+#                                             col_used=col_used
+#                                             )
+
+#     train_dataloader = DataLoader(
+#         transformed_train_dataset,
+#         batch_size=batch_size,
+#         shuffle=True,
+#         num_workers=8)
+
+#     transform_test_data = transforms.Compose(
+#         ([
+#             transforms.ToPILImage(), transforms.Resize(
+#                 (224, 224)), transforms.ToTensor(), transforms.Normalize(
+#                 mean=[
+#                     0.485, 0.456, 0.406], std=[
+#                         0.229, 0.224, 0.225])]))
+
+#     transformed_test_dataset = FaceDataset(data_frame=val_frame,
+#                                            transform=transform_test_data,
+#                                            col_used=col_used
+#                                            )
+
+#     test_dataloader = DataLoader(
+#         transformed_test_dataset,
+#         batch_size=batch_size,
+#         shuffle=True,
+#         num_workers=8)
+#     if give_dataloader:
+#         return train_dataloader, test_dataloader
+#     else:
+#         return transformed_train_dataset, transformed_test_dataset
+
+def make_frame(
+        csv,
+        face_dir,
+        train_pct=0.8,
+        imbalance=False):
+    frame = pd.read_csv(csv)
+    frame.head()
+
+    frame = relabel(frame)
+
+    if imbalance:
+        frame = add_imbalance(frame)
+
+    # Change face_name_align if the images are now stored in a different dir
+    # Also make sure all faces are found and can be
+    if face_dir:
+        initial_rows = frame.shape[0]
+        faces = set(os.listdir(face_dir))
+        faces_found = 0
+        new_face_name = []
+        face_found_mask = []
+        for i in range(frame.shape[0]):
+            face_name_align = split_image_name(frame['face_name_align'][i])
+            face_found_mask.append(face_name_align in faces)
+            if face_name_align in faces:
+                new_path = os.path.join(face_dir, face_name_align)
+                try:
+                    faces_found += 1
+                    new_face_name.append(new_path)
+                except BaseException:
+                    continue
+        frame = frame[face_found_mask].reset_index(drop=True)
+        frame['face_name_align'] = new_face_name
+        print(
+            "{} out of {} faces are found in new dir!".format(
+                faces_found,
+                initial_rows))
+
+    image_name_frame = frame['image_name'].apply(split_image_name)
+    image_names = image_name_frame.unique()
+    np.random.seed(42)
+    image_names = np.random.permutation(image_names)
+    return image_names
+
+
+def make_datasets(data_frame,
+        input_size = 224,   
         give_dataloader=True,
         batch_size=64,
         col_used=None):
-    device = torch.device('cuda:0')
+    
     transform_train_data = transforms.Compose([
         ImgAugTransform(),
         lambda x: PIL.Image.fromarray(x),
-        transforms.Resize((224, 224)),
+        transforms.Resize((input_size, input_size)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    transformed_train_dataset = FaceDataset(data_frame=train_frame,
-                                            transform=transform_train_data,
-                                            col_used=col_used
-                                            )
-
-    train_dataloader = DataLoader(
-        transformed_train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=8)
-
-    transform_test_data = transforms.Compose(
-        ([
-            transforms.ToPILImage(), transforms.Resize(
-                (224, 224)), transforms.ToTensor(), transforms.Normalize(
-                mean=[
-                    0.485, 0.456, 0.406], std=[
-                        0.229, 0.224, 0.225])]))
-
-    transformed_test_dataset = FaceDataset(data_frame=val_frame,
-                                           transform=transform_test_data,
-                                           col_used=col_used
-                                           )
-
-    test_dataloader = DataLoader(
-        transformed_test_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=8)
+    transformed_dataset = FaceDataset(data_frame=data_frame, transform=transform_train_data, col_used=col_used)
+    
     if give_dataloader:
-        return train_dataloader, test_dataloader
+        dataloader = DataLoader(
+        transformed_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=8)
+        return dataloader
     else:
-        return transformed_train_dataset, transformed_test_dataset
+        
+        return transformed_dataset
