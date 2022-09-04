@@ -40,11 +40,12 @@ def get_config(args):
     configuration['BATCH_SIZE'] = args.batch_size
 
     configuration['DATA_ROOT'] = 'data/FairFace' # the dir for training
-    configuration['CSV_FILE'] = 'csv/FairFace.csv' # the dir for training
+    configuration['CSV_FILE'] = 'csv/FairFace.csv' # the csv file for training
+    configuration['NUM_CLASS'] = 14
 
     configuration['EVAL_PATH'] = '../eval/' # the dir for validation
 
-    assert args.net in ['IR_50', 'IR_101', 'MobileFaceNet']
+    assert args.net in ['IR_50', 'Res_50', 'MobileFaceNet']
 
 
     configuration['BACKBONE_NAME'] = args.net

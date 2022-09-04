@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 import numpy as np
 from PIL import Image
-import mxnet as mx
+# import mxnet as mx
 import io
 import os, pickle, sklearn
 import time
@@ -26,43 +26,43 @@ def get_time():
     return (str(datetime.now())[:-10]).replace(' ', '-').replace(':', '-')
 
 
-def load_bin(path, image_size=[112,112]):
-    bins, issame_list = pickle.load(open(path, 'rb'), encoding='bytes')
-    data_list = []
-    for flip in [0,1]:
-        data = torch.zeros((len(issame_list)*2, 3, image_size[0], image_size[1]))
-        data_list.append(data)
-    for i in range(len(issame_list)*2):
-        _bin = bins[i]
-        img = mx.image.imdecode(_bin)
-        if img.shape[1]!=image_size[0]:
-            img = mx.image.resize_short(img, image_size[0])
-        img = mx.nd.transpose(img, axes=(2, 0, 1))
-        for flip in [0,1]:
-            if flip==1:
-                img = mx.ndarray.flip(data=img, axis=2)
-            data_list[flip][i][:] = torch.tensor(img.asnumpy())
-        if i%1000==0:
-            print('loading bin', i)
-    print(data_list[0].shape)
-    return data_list, issame_list
+# def load_bin(path, image_size=[112,112]):
+#     bins, issame_list = pickle.load(open(path, 'rb'), encoding='bytes')
+#     data_list = []
+#     for flip in [0,1]:
+#         data = torch.zeros((len(issame_list)*2, 3, image_size[0], image_size[1]))
+#         data_list.append(data)
+#     for i in range(len(issame_list)*2):
+#         _bin = bins[i]
+#         img = mx.image.imdecode(_bin)
+#         if img.shape[1]!=image_size[0]:
+#             img = mx.image.resize_short(img, image_size[0])
+#         img = mx.nd.transpose(img, axes=(2, 0, 1))
+#         for flip in [0,1]:
+#             if flip==1:
+#                 img = mx.ndarray.flip(data=img, axis=2)
+#             data_list[flip][i][:] = torch.tensor(img.asnumpy())
+#         if i%1000==0:
+#             print('loading bin', i)
+#     print(data_list[0].shape)
+#     return data_list, issame_list
 
 
-def get_val_pair(path, name):
-    ver_path = os.path.join(path,name+".bin")
-    assert os.path.exists(ver_path)
-    data_set, issame = load_bin(ver_path)
-    print('ver', name)
-    return data_set, issame
+# def get_val_pair(path, name):
+#     ver_path = os.path.join(path,name+".bin")
+#     assert os.path.exists(ver_path)
+#     data_set, issame = load_bin(ver_path)
+#     print('ver', name)
+#     return data_set, issame
 
 
-def get_val_data(data_path, targets):
-    assert len(targets) > 0
-    vers = []
-    for t in targets:
-        data_set, issame = get_val_pair(data_path, t)
-        vers.append([t, data_set, issame])
-    return vers
+# def get_val_data(data_path, targets):
+#     assert len(targets) > 0
+#     vers = []
+#     for t in targets:
+#         data_set, issame = get_val_pair(data_path, t)
+#         vers.append([t, data_set, issame])
+#     return vers
 
 
 def separate_irse_bn_paras(modules):
