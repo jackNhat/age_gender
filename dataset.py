@@ -304,10 +304,7 @@ class FaceDataset(Dataset):
         self,
         data_frame,
         transform=None,
-        col_used=[
-            'race',
-            'gender',
-            'age']):
+        col_used=None):
 
         self.data_frame = data_frame
         self.transform = transform
@@ -435,7 +432,8 @@ def make_frame(
     image_names = image_name_frame.unique()
     np.random.seed(42)
     image_names = np.random.permutation(image_names)
-    return image_names
+    train_data = frame[image_name_frame.isin(image_names)].reset_index(drop=True)
+    return train_data
 
 
 def make_datasets(data_frame,
@@ -447,7 +445,7 @@ def make_datasets(data_frame,
     transform_train_data = transforms.Compose([
         ImgAugTransform(),
         lambda x: PIL.Image.fromarray(x),
-        transforms.Resize((input_size, input_size)),
+        transforms.Resize(input_size),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])

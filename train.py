@@ -16,7 +16,9 @@ from head.metrics import SFaceLoss
 from dataset import make_datasets, make_frame
 
 from util.utils import separate_irse_bn_paras, separate_resnet_bn_paras, separate_mobilefacenet_bn_paras
-from util.utils import get_val_data, perform_val, get_time, buffer_val, AverageMeter, train_accuracy
+from util.utils import get_time, AverageMeter, train_accuracy
+# from util.utils import get_val_data, perform_val, get_time, buffer_val, AverageMeter, train_accuracy
+
 
 
 def xavier_normal_(tensor, gain=1., mode='avg'):
@@ -78,12 +80,12 @@ def need_save(acc, highest_acc):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
-    parser.add_argument('--workers_id', help="gpu ids or cpu", default='cpu', type=str)
+    parser.add_argument('--workers_id', help="gpu ids or cpu", default='1', type=str)
     parser.add_argument('--epochs', help="training epochs", default=125, type=int)
     parser.add_argument('--stages', help="training stages", default='35,65,95', type=str)
     parser.add_argument('--lr',help='learning rate',default=1e-1, type=float)
     parser.add_argument('--batch_size', help="batch_size", default=256, type=int)
-    parser.add_argument('--data_mode', help="use which database, [casia, vgg, ms1m, retina, ms1mr]",default='ms1m', type=str)
+    # parser.add_argument('--data_mode', help="use which database, [casia, vgg, ms1m, retina, ms1mr]",default='ms1m', type=str)
     parser.add_argument('--net', help="which network, ['IR_50', 'RESNET_50', 'MobileFaceNet']",default='RESNET_50', type=str)
     parser.add_argument('--head', help="head type, ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax']", default='ArcFace', type=str)
     parser.add_argument('--target', help="verification targets", default='lfw,talfw,sllfw,calfw,cplfw,cfp_fp,agedb_30', type=str)
@@ -104,6 +106,7 @@ if __name__ == '__main__':
 
     CSV_FILE = cfg['CSV_FILE']
     DATA_ROOT = cfg['DATA_ROOT'] # the parent root where your train data are stored
+    NUM_CLASS = cfg['NUM_CLASS']
     EVAL_PATH = cfg['EVAL_PATH'] # the parent root where your val data are stored
     WORK_PATH = cfg['WORK_PATH'] # the root to buffer your checkpoints and to log your train/val status
     BACKBONE_RESUME_ROOT = cfg['BACKBONE_RESUME_ROOT'] # the root to resume training from a saved checkpoint
@@ -137,23 +140,23 @@ if __name__ == '__main__':
     writer = SummaryWriter(WORK_PATH) # writer for buffering intermedium results
     torch.backends.cudnn.benchmark = True
 
-    with open(os.path.join(DATA_ROOT, 'property'), 'r') as f:
-        NUM_CLASS, h, w = [int(i) for i in f.read().split(',')]
-    assert h == INPUT_SIZE[0] and w == INPUT_SIZE[1]
+    # with open(os.path.join(DATA_ROOT, 'property'), 'r') as f:
+        # NUM_CLASS, h, w = [int(i) for i in f.read().split(',')]
+    # assert h == INPUT_SIZE[0] and w == INPUT_SIZE[1]
     
     frames = make_frame(CSV_FILE, DATA_ROOT)
-    train_data = make_datasets(frames, input_size = INPUT_SIZE, give_dataloader=False)
+    train_data = make_datasets(frames, input_size = INPUT_SIZE, give_dataloader=False, col_used=['ageAndgender'])
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=len(GPU_ID), drop_last=True)
 
     print("Number of Training Classes: {}".format(NUM_CLASS))
 
-    vers = get_val_data(EVAL_PATH, TARGET)
+    # vers = get_val_data(EVAL_PATH, TARGET)
     highest_acc = [0.0 for t in TARGET]
 
 
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'IR_50': IR_50(INPUT_SIZE),
-                    'Resnet_50': ResNet_50(INPUT_SIZE),
+                    'Res_50': ResNet_50(INPUT_SIZE),
                      'IR_101': IR_101(INPUT_SIZE),
                      'MobileFaceNet': MobileFaceNet(EMBEDDING_SIZE)}
     BACKBONE = BACKBONE_DICT[BACKBONE_NAME]
@@ -279,22 +282,22 @@ if __name__ == '__main__':
                 top1 = AverageMeter()
 
             if ((batch + 1) % VER_FREQ == 0) and batch != 0:  # perform validation & save checkpoints (buffer for visualization)
-                for params in OPTIMIZER.param_groups:
-                    lr = params['lr']
-                    break
-                print("Learning rate %f" % lr)
-                print("Perform Evaluation on", TARGET, ", and Save Checkpoints...")
-                acc = []
-                for ver in vers:
-                    name, data_set, issame = ver
-                    accuracy, std, xnorm, best_threshold, roc_curve = perform_val(MULTI_GPU, DEVICE, EMBEDDING_SIZE,
-                                                                                  BATCH_SIZE, BACKBONE, data_set,
-                                                                                  issame)
-                    buffer_val(writer, name, accuracy, std, xnorm, best_threshold, roc_curve, batch + 1)
-                    print('[%s][%d]XNorm: %1.5f' % (name, batch + 1, xnorm))
-                    print('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (name, batch + 1, accuracy, std))
-                    print('[%s][%d]Best-Threshold: %1.5f' % (name, batch + 1, best_threshold))
-                    acc.append(accuracy)
+                # for params in OPTIMIZER.param_groups:
+                #     lr = params['lr']
+                #     break
+                # print("Learning rate %f" % lr)
+                # print("Perform Evaluation on", TARGET, ", and Save Checkpoints...")
+                # acc = []
+                # for ver in vers:
+                #     name, data_set, issame = ver
+                #     accuracy, std, xnorm, best_threshold, roc_curve = perform_val(MULTI_GPU, DEVICE, EMBEDDING_SIZE,
+                #                                                                   BATCH_SIZE, BACKBONE, data_set,
+                #                                                                   issame)
+                #     buffer_val(writer, name, accuracy, std, xnorm, best_threshold, roc_curve, batch + 1)
+                #     print('[%s][%d]XNorm: %1.5f' % (name, batch + 1, xnorm))
+                #     print('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (name, batch + 1, accuracy, std))
+                #     print('[%s][%d]Best-Threshold: %1.5f' % (name, batch + 1, best_threshold))
+                #     acc.append(accuracy)
 
                 # save checkpoints per epoch
                 if need_save(acc, highest_acc):
