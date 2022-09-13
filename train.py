@@ -145,13 +145,13 @@ if __name__ == '__main__':
     # assert h == INPUT_SIZE[0] and w == INPUT_SIZE[1]
     
     frames = make_frame(CSV_FILE, DATA_ROOT)
-    train_data = make_datasets(frames, input_size = INPUT_SIZE, give_dataloader=False, col_used=['ageAndgender'])
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=len(GPU_ID), drop_last=True)
+    train_data = make_datasets(frames, input_size = INPUT_SIZE, give_dataloader=False, col_used='ageAndgender')
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, drop_last=True)
 
     print("Number of Training Classes: {}".format(NUM_CLASS))
 
     # vers = get_val_data(EVAL_PATH, TARGET)
-    highest_acc = [0.0 for t in TARGET]
+    # highest_acc = [0.0 for t in TARGET]
 
 
     #======= model & loss & optimizer =======#
@@ -281,43 +281,43 @@ if __name__ == '__main__':
                 Wj_mean = AverageMeter()
                 top1 = AverageMeter()
 
-            if ((batch + 1) % VER_FREQ == 0) and batch != 0:  # perform validation & save checkpoints (buffer for visualization)
-                # for params in OPTIMIZER.param_groups:
-                #     lr = params['lr']
-                #     break
-                # print("Learning rate %f" % lr)
-                # print("Perform Evaluation on", TARGET, ", and Save Checkpoints...")
-                # acc = []
-                # for ver in vers:
-                #     name, data_set, issame = ver
-                #     accuracy, std, xnorm, best_threshold, roc_curve = perform_val(MULTI_GPU, DEVICE, EMBEDDING_SIZE,
-                #                                                                   BATCH_SIZE, BACKBONE, data_set,
-                #                                                                   issame)
-                #     buffer_val(writer, name, accuracy, std, xnorm, best_threshold, roc_curve, batch + 1)
-                #     print('[%s][%d]XNorm: %1.5f' % (name, batch + 1, xnorm))
-                #     print('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (name, batch + 1, accuracy, std))
-                #     print('[%s][%d]Best-Threshold: %1.5f' % (name, batch + 1, best_threshold))
-                #     acc.append(accuracy)
+            # if ((batch + 1) % VER_FREQ == 0) and batch != 0:  # perform validation & save checkpoints (buffer for visualization)
+            #     for params in OPTIMIZER.param_groups:
+            #         lr = params['lr']
+            #         break
+            #     print("Learning rate %f" % lr)
+            #     print("Perform Evaluation on", TARGET, ", and Save Checkpoints...")
+            #     acc = []
+            #     for ver in vers:
+            #         name, data_set, issame = ver
+            #         accuracy, std, xnorm, best_threshold, roc_curve = perform_val(MULTI_GPU, DEVICE, EMBEDDING_SIZE,
+            #                                                                       BATCH_SIZE, BACKBONE, data_set,
+            #                                                                       issame)
+            #         buffer_val(writer, name, accuracy, std, xnorm, best_threshold, roc_curve, batch + 1)
+            #         print('[%s][%d]XNorm: %1.5f' % (name, batch + 1, xnorm))
+            #         print('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (name, batch + 1, accuracy, std))
+            #         print('[%s][%d]Best-Threshold: %1.5f' % (name, batch + 1, best_threshold))
+            #     #     acc.append(accuracy)
 
-                # save checkpoints per epoch
-                if need_save(acc, highest_acc):
-                    if MULTI_GPU:
-                        torch.save(BACKBONE.module.state_dict(), os.path.join(WORK_PATH,
-                                                                              "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-                                                                                  BACKBONE_NAME, epoch + 1, batch + 1,
-                                                                                  get_time())))
-                        torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-                                                                   "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-                                                                       HEAD_NAME, epoch + 1, batch + 1, get_time())))
-                    else:
-                        torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
-                                                                       "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-                                                                           BACKBONE_NAME, epoch + 1, batch + 1,
-                                                                           get_time())))
-                        torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-                                                                   "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-                                                                       HEAD_NAME, epoch + 1, batch + 1, get_time())))
-                BACKBONE.train()  # set to training mode
+            #     # save checkpoints per epoch
+            #     if need_save(acc, highest_acc):
+            #         if MULTI_GPU:
+            #             torch.save(BACKBONE.module.state_dict(), os.path.join(WORK_PATH,
+            #                                                                   "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
+            #                                                                       BACKBONE_NAME, epoch + 1, batch + 1,
+            #                                                                       get_time())))
+            #             torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
+            #                                                        "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
+            #                                                            HEAD_NAME, epoch + 1, batch + 1, get_time())))
+            #         else:
+            #             torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
+            #                                                            "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
+            #                                                                BACKBONE_NAME, epoch + 1, batch + 1,
+            #                                                                get_time())))
+            #             torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
+            #                                                        "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
+            #                                                            HEAD_NAME, epoch + 1, batch + 1, get_time())))
+            #     BACKBONE.train()  # set to training mode
 
             batch += 1  # batch index
 
