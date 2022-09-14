@@ -12,12 +12,11 @@ from config import get_config
 from backbone.model_irse import IR_50, IR_101
 from backbone.model_resnet import ResNet_50
 from backbone.model_mobilefacenet import MobileFaceNet
-from head.metrics import SFaceLoss
+from head.metrics import SFaceLoss, Am_softmax, ArcFace, Softmax, CosFace, SphereFace
 from dataset import make_datasets, make_frame
 
 from util.utils import separate_irse_bn_paras, separate_resnet_bn_paras, separate_mobilefacenet_bn_paras
-from util.utils import get_time, AverageMeter, train_accuracy
-# from util.utils import get_val_data, perform_val, get_time, buffer_val, AverageMeter, train_accuracy
+from util.utils import AverageMeter, train_accuracy
 
 
 
@@ -81,14 +80,14 @@ def need_save(acc, highest_acc):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
     parser.add_argument('--workers_id', help="gpu ids or cpu", default='1', type=str)
-    parser.add_argument('--epochs', help="training epochs", default=125, type=int)
+    parser.add_argument('--epochs', help="training epochs", default=128, type=int)
     parser.add_argument('--stages', help="training stages", default='35,65,95', type=str)
-    parser.add_argument('--lr',help='learning rate',default=1e-1, type=float)
-    parser.add_argument('--batch_size', help="batch_size", default=256, type=int)
+    parser.add_argument('--lr',help='learning rate',default=1e-2, type=float)
+    parser.add_argument('--batch_size', help="batch_size", default=200, type=int)
     # parser.add_argument('--data_mode', help="use which database, [casia, vgg, ms1m, retina, ms1mr]",default='ms1m', type=str)
-    parser.add_argument('--net', help="which network, ['IR_50', 'RESNET_50', 'MobileFaceNet']",default='RESNET_50', type=str)
-    parser.add_argument('--head', help="head type, ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax']", default='ArcFace', type=str)
-    parser.add_argument('--target', help="verification targets", default='lfw,talfw,sllfw,calfw,cplfw,cfp_fp,agedb_30', type=str)
+    parser.add_argument('--net', help="which network, ['IR_50', 'Res_50', 'MobileFaceNet']",default='Res_50', type=str)
+    parser.add_argument('--head', help="head type, ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax','SFaceLoss']", default='ArcFace', type=str)
+    parser.add_argument('--target', help="verification targets", default='agedb_30', type=str)
     parser.add_argument('--resume_backbone', help="resume backbone model", default='', type=str)
     parser.add_argument('--resume_head', help="resume head model", default='', type=str)
     parser.add_argument('--outdir', help="output dir", default='test_dir', type=str)
@@ -133,9 +132,6 @@ if __name__ == '__main__':
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
-    with open(os.path.join(WORK_PATH, 'config.txt'), 'w') as f:
-        f.write(str(cfg))
-    print("=" * 60)
 
     writer = SummaryWriter(WORK_PATH) # writer for buffering intermedium results
     torch.backends.cudnn.benchmark = True
@@ -153,7 +149,6 @@ if __name__ == '__main__':
     # vers = get_val_data(EVAL_PATH, TARGET)
     # highest_acc = [0.0 for t in TARGET]
 
-
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'IR_50': IR_50(INPUT_SIZE),
                     'Res_50': ResNet_50(INPUT_SIZE),
@@ -165,10 +160,24 @@ if __name__ == '__main__':
     print("{} Backbone Generated".format(BACKBONE_NAME))
     print("=" * 60)
 
-    HEAD = SFaceLoss(in_features = EMBEDDING_SIZE, out_features=NUM_CLASS, device_id=GPU_ID,
-                     s = args.param_s, k = args.param_k, a = args.param_a, b = args.param_b)
+    # HEAD = SFaceLoss(in_features = EMBEDDING_SIZE, out_features=NUM_CLASS, device_id=GPU_ID,
+    #                  s = args.param_s, k = args.param_k, a = args.param_a, b = args.param_b)
+    HEAD_DICT = {'Softmax': Softmax(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'ArcFace': ArcFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'CosFace': CosFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'SphereFace': SphereFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'Am_softmax': Am_softmax(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'SFaceLoss': SFaceLoss(in_features = EMBEDDING_SIZE, out_features=NUM_CLASS, device_id=GPU_ID, s = args.param_s, 
+                 k = args.param_k, a = args.param_a, b = args.param_b)}
+    HEAD = HEAD_DICT[HEAD_NAME]
     print("=" * 60)
     print(HEAD)
+    print("{} Head Generated".format(HEAD_NAME))
+    print("=" * 60)
+    print("=" * 60)
+    print(HEAD)
+
+    LOSS = nn.CrossEntropyLoss()
 
 
     if BACKBONE_NAME.find("IR") >= 0:
@@ -215,14 +224,18 @@ if __name__ == '__main__':
     VER_FREQ = 2000
     batch = 0  # batch index
 
-    intra_losses = AverageMeter()
-    inter_losses = AverageMeter()
-    Wyi_mean = AverageMeter()
-    Wj_mean = AverageMeter()
+    # intra_losses = AverageMeter()
+    # inter_losses = AverageMeter()
+    # Wyi_mean = AverageMeter()
+    # Wj_mean = AverageMeter()
+    # top1 = AverageMeter()
+
+    losses = AverageMeter()
     top1 = AverageMeter()
 
     BACKBONE.train()  # set to training mode
     HEAD.train()
+
     for epoch in range(NUM_EPOCH):
 
         if epoch in STAGES:
@@ -234,51 +247,40 @@ if __name__ == '__main__':
             inputs = inputs.to(DEVICE)
             labels = labels.to(DEVICE).long()
             features = BACKBONE(inputs)
+            
+            outputs = HEAD(features, labels)
+            loss = LOSS(outputs, labels)
 
-
-            outputs, loss, intra_loss, inter_loss, WyiX, WjX = HEAD(features, labels)
+            # outputs, loss, intra_loss, inter_loss, WyiX, WjX = HEAD(features, labels)
 
             prec1 = train_accuracy(outputs.data, labels, topk=(1,))
             #embed()
-            intra_losses.update(intra_loss.data.item(), inputs.size(0))
-            inter_losses.update(inter_loss.data.item(), inputs.size(0))
-            Wyi_mean.update(WyiX.data.item(), inputs.size(0))
-            Wj_mean.update(WjX.data.item(), inputs.size(0))
+            losses.update(loss.data.item(), inputs.size(0))
             top1.update(prec1.data.item(), inputs.size(0))
 
+            # compute gradient and do SGD step
             OPTIMIZER.zero_grad()
             loss.backward()
             OPTIMIZER.step()
-
+            
+            # dispaly training loss & acc every DISP_FREQ (buffer for visualization)
             if ((batch + 1) % DISP_FREQ == 0) and batch != 0:
-                intra_epoch_loss = intra_losses.avg
-                inter_epoch_loss = inter_losses.avg
-                Wyi_record = Wyi_mean.avg
-                Wj_record = Wj_mean.avg
+                epoch_loss = losses.avg
                 epoch_acc = top1.avg
-                writer.add_scalar("intra_Loss", intra_epoch_loss, batch + 1)
-                writer.add_scalar("inter_Loss", inter_epoch_loss, batch + 1)
-                writer.add_scalar("Wyi", Wyi_record, batch + 1)
-                writer.add_scalar("Wj", Wj_record, batch + 1)
-                writer.add_scalar("Accuracy", epoch_acc, batch + 1)
+                writer.add_scalar("Training/Training_Loss", epoch_loss, batch + 1)
+                writer.add_scalar("Training/Training_Accuracy", epoch_acc, batch + 1)
 
                 batch_time = time.time() - last_time
                 last_time = time.time()
 
                 print('Epoch {} Batch {}\t'
                       'Speed: {speed:.2f} samples/s\t'
-                      'intra_Loss {loss1.val:.4f} ({loss1.avg:.4f})\t'
-                      'inter_Loss {loss2.val:.4f} ({loss2.avg:.4f})\t'
-                      'Wyi {Wyi.val:.4f} ({Wyi.avg:.4f})\t'
-                      'Wj {Wj.val:.4f} ({Wj.avg:.4f})\t'
-                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                      'Training Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Training Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                     epoch + 1, batch + 1, speed=inputs.size(0) * DISP_FREQ / float(batch_time),
-                    loss1 = intra_losses, loss2 = inter_losses, Wyi=Wyi_mean, Wj=Wj_mean, top1=top1))
-                # print("=" * 60)
-                intra_losses = AverageMeter()
-                inter_losses = AverageMeter()
-                Wyi_mean = AverageMeter()
-                Wj_mean = AverageMeter()
+                    loss=losses, top1=top1))
+                #print("=" * 60)
+                losses = AverageMeter()
                 top1 = AverageMeter()
 
             # if ((batch + 1) % VER_FREQ == 0) and batch != 0:  # perform validation & save checkpoints (buffer for visualization)
@@ -318,6 +320,4 @@ if __name__ == '__main__':
             #                                                        "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
             #                                                            HEAD_NAME, epoch + 1, batch + 1, get_time())))
             #     BACKBONE.train()  # set to training mode
-
             batch += 1  # batch index
-
