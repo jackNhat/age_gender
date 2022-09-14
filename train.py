@@ -12,11 +12,11 @@ from config import get_config
 from backbone.model_irse import IR_50, IR_101
 from backbone.model_resnet import ResNet_50
 from backbone.model_mobilefacenet import MobileFaceNet
-from head.metrics import SFaceLoss
+from head.metrics import SFaceLoss, Am_softmax, ArcFace, Softmax, CosFace, SphereFace
 from dataset import make_datasets, make_frame
 
 from util.utils import separate_irse_bn_paras, separate_resnet_bn_paras, separate_mobilefacenet_bn_paras
-from util.utils import get_time, AverageMeter, train_accuracy
+from util.utils import AverageMeter, train_accuracy
 
 
 def xavier_normal_(tensor, gain=1., mode='avg'):
@@ -63,7 +63,7 @@ def schedule_lr(optimizer):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
     parser.add_argument('--workers_id', help="gpu ids or cpu", default='1', type=str)
-    parser.add_argument('--epochs', help="training epochs", default=125, type=int)
+    parser.add_argument('--epochs', help="training epochs", default=128, type=int)
     parser.add_argument('--stages', help="training stages", default='35,65,95', type=str)
     parser.add_argument('--lr',help='learning rate',default=1e-1, type=float)
     parser.add_argument('--batch_size', help="batch_size", default=64, type=int)
@@ -115,9 +115,6 @@ if __name__ == '__main__':
     print("=" * 60)
     print("Overall Configurations:")
     print(cfg)
-    with open(os.path.join(WORK_PATH, 'config.txt'), 'w') as f:
-        f.write(str(cfg))
-    print("=" * 60)
 
     writer = SummaryWriter(WORK_PATH) # writer for buffering intermedium results
     torch.backends.cudnn.benchmark = True
@@ -143,10 +140,24 @@ if __name__ == '__main__':
     print("{} Backbone Generated".format(BACKBONE_NAME))
     print("=" * 60)
 
-    HEAD = SFaceLoss(in_features = EMBEDDING_SIZE, out_features=NUM_CLASS, device_id=GPU_ID,
-                     s = args.param_s, k = args.param_k, a = args.param_a, b = args.param_b)
+    # HEAD = SFaceLoss(in_features = EMBEDDING_SIZE, out_features=NUM_CLASS, device_id=GPU_ID,
+    #                  s = args.param_s, k = args.param_k, a = args.param_a, b = args.param_b)
+    HEAD_DICT = {'Softmax': Softmax(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'ArcFace': ArcFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'CosFace': CosFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'SphereFace': SphereFace(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'Am_softmax': Am_softmax(in_features = EMBEDDING_SIZE, out_features = NUM_CLASS, device_id = GPU_ID),
+                 'SFaceLoss': SFaceLoss(in_features = EMBEDDING_SIZE, out_features=NUM_CLASS, device_id=GPU_ID, s = args.param_s, 
+                 k = args.param_k, a = args.param_a, b = args.param_b)}
+    HEAD = HEAD_DICT[HEAD_NAME]
     print("=" * 60)
     print(HEAD)
+    print("{} Head Generated".format(HEAD_NAME))
+    print("=" * 60)
+    print("=" * 60)
+    print(HEAD)
+
+    LOSS = nn.CrossEntropyLoss()
 
 
     if BACKBONE_NAME.find("IR") >= 0:
@@ -192,16 +203,20 @@ if __name__ == '__main__':
     DISP_FREQ = 200 # frequency to display training loss & acc
     batch = 0  # batch index
 
-    intra_losses = AverageMeter()
-    inter_losses = AverageMeter()
-    Wyi_mean = AverageMeter()
-    Wj_mean = AverageMeter()
+    # intra_losses = AverageMeter()
+    # inter_losses = AverageMeter()
+    # Wyi_mean = AverageMeter()
+    # Wj_mean = AverageMeter()
+    # top1 = AverageMeter()
+
+    losses = AverageMeter()
     top1 = AverageMeter()
 
     BACKBONE.train()  # set to training mode
     HEAD.train()
-
+    
     highest_acc = 0.0
+
     for epoch in range(NUM_EPOCH):
 
         if epoch in STAGES:
@@ -213,33 +228,28 @@ if __name__ == '__main__':
             inputs = inputs.to(DEVICE)
             labels = labels.to(DEVICE).long()
             features = BACKBONE(inputs)
+            
+            outputs = HEAD(features, labels)
+            loss = LOSS(outputs, labels)
 
-
-            outputs, loss, intra_loss, inter_loss, WyiX, WjX = HEAD(features, labels)
+            # outputs, loss, intra_loss, inter_loss, WyiX, WjX = HEAD(features, labels)
 
             prec1 = train_accuracy(outputs.data, labels, topk=(1,))
             #embed()
-            intra_losses.update(intra_loss.data.item(), inputs.size(0))
-            inter_losses.update(inter_loss.data.item(), inputs.size(0))
-            Wyi_mean.update(WyiX.data.item(), inputs.size(0))
-            Wj_mean.update(WjX.data.item(), inputs.size(0))
+            losses.update(loss.data.item(), inputs.size(0))
             top1.update(prec1.data.item(), inputs.size(0))
 
+            # compute gradient and do SGD step
             OPTIMIZER.zero_grad()
             loss.backward()
             OPTIMIZER.step()
-
+            
+            # dispaly training loss & acc every DISP_FREQ (buffer for visualization)
             if ((batch + 1) % DISP_FREQ == 0) and batch != 0:
-                intra_epoch_loss = intra_losses.avg
-                inter_epoch_loss = inter_losses.avg
-                Wyi_record = Wyi_mean.avg
-                Wj_record = Wj_mean.avg
+                epoch_loss = losses.avg
                 epoch_acc = top1.avg
-                writer.add_scalar("intra_Loss", intra_epoch_loss, batch + 1)
-                writer.add_scalar("inter_Loss", inter_epoch_loss, batch + 1)
-                writer.add_scalar("Wyi", Wyi_record, batch + 1)
-                writer.add_scalar("Wj", Wj_record, batch + 1)
-                writer.add_scalar("Accuracy", epoch_acc, batch + 1)
+                writer.add_scalar("Training/Training_Loss", epoch_loss, batch + 1)
+                writer.add_scalar("Training/Training_Accuracy", epoch_acc, batch + 1)
 
                 batch_time = time.time() - last_time
                 last_time = time.time()
@@ -264,5 +274,4 @@ if __name__ == '__main__':
                     torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
                     "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
                         HEAD_NAME, epoch + 1, batch + 1, get_time())))
-                
             batch += 1  # batch index
