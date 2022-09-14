@@ -17,8 +17,6 @@ from dataset import make_datasets, make_frame
 
 from util.utils import separate_irse_bn_paras, separate_resnet_bn_paras, separate_mobilefacenet_bn_paras
 from util.utils import get_time, AverageMeter, train_accuracy
-# from util.utils import get_val_data, perform_val, get_time, buffer_val, AverageMeter, train_accuracy
-
 
 
 def xavier_normal_(tensor, gain=1., mode='avg'):
@@ -62,33 +60,17 @@ def schedule_lr(optimizer):
     print(optimizer)
 
 
-def need_save(acc, highest_acc):
-    do_save = False
-    save_cnt = 0
-    if acc[0] > 0.98:
-        do_save = True
-    for i, accuracy in enumerate(acc):
-        if accuracy > highest_acc[i]:
-            highest_acc[i] = accuracy
-            do_save = True
-        if i > 0 and accuracy >= highest_acc[i]-0.002:
-            save_cnt += 1
-    if save_cnt >= len(acc)*3/4 and acc[0]>0.99:
-        do_save = True
-    print("highest_acc:", highest_acc)
-    return do_save
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='for face verification')
     parser.add_argument('--workers_id', help="gpu ids or cpu", default='1', type=str)
     parser.add_argument('--epochs', help="training epochs", default=125, type=int)
     parser.add_argument('--stages', help="training stages", default='35,65,95', type=str)
     parser.add_argument('--lr',help='learning rate',default=1e-1, type=float)
-    parser.add_argument('--batch_size', help="batch_size", default=256, type=int)
+    parser.add_argument('--batch_size', help="batch_size", default=64, type=int)
     # parser.add_argument('--data_mode', help="use which database, [casia, vgg, ms1m, retina, ms1mr]",default='ms1m', type=str)
-    parser.add_argument('--net', help="which network, ['IR_50', 'RESNET_50', 'MobileFaceNet']",default='RESNET_50', type=str)
-    parser.add_argument('--head', help="head type, ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax']", default='ArcFace', type=str)
-    parser.add_argument('--target', help="verification targets", default='lfw,talfw,sllfw,calfw,cplfw,cfp_fp,agedb_30', type=str)
+    parser.add_argument('--net', help="which network, ['IR_50', 'Res_50', 'MobileFaceNet']",default='Res_50', type=str)
+    parser.add_argument('--head', help="head type, ['Softmax', 'ArcFace', 'CosFace', 'SphereFace', 'Am_softmax','SFaceLoss']", default='ArcFace', type=str)
+    parser.add_argument('--target', help="verification targets", default='agedb_30', type=str)
     parser.add_argument('--resume_backbone', help="resume backbone model", default='', type=str)
     parser.add_argument('--resume_head', help="resume head model", default='', type=str)
     parser.add_argument('--outdir', help="output dir", default='test_dir', type=str)
@@ -150,10 +132,6 @@ if __name__ == '__main__':
 
     print("Number of Training Classes: {}".format(NUM_CLASS))
 
-    # vers = get_val_data(EVAL_PATH, TARGET)
-    # highest_acc = [0.0 for t in TARGET]
-
-
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'IR_50': IR_50(INPUT_SIZE),
                     'Res_50': ResNet_50(INPUT_SIZE),
@@ -211,8 +189,7 @@ if __name__ == '__main__':
         BACKBONE = BACKBONE.to(DEVICE)
 
     #======= train & validation & save checkpoint =======#
-    DISP_FREQ = 20 # frequency to display training loss & acc
-    VER_FREQ = 2000
+    DISP_FREQ = 200 # frequency to display training loss & acc
     batch = 0  # batch index
 
     intra_losses = AverageMeter()
@@ -223,6 +200,8 @@ if __name__ == '__main__':
 
     BACKBONE.train()  # set to training mode
     HEAD.train()
+
+    highest_acc = 0.0
     for epoch in range(NUM_EPOCH):
 
         if epoch in STAGES:
@@ -274,50 +253,16 @@ if __name__ == '__main__':
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                     epoch + 1, batch + 1, speed=inputs.size(0) * DISP_FREQ / float(batch_time),
                     loss1 = intra_losses, loss2 = inter_losses, Wyi=Wyi_mean, Wj=Wj_mean, top1=top1))
-                # print("=" * 60)
-                intra_losses = AverageMeter()
-                inter_losses = AverageMeter()
-                Wyi_mean = AverageMeter()
-                Wj_mean = AverageMeter()
-                top1 = AverageMeter()
 
-            # if ((batch + 1) % VER_FREQ == 0) and batch != 0:  # perform validation & save checkpoints (buffer for visualization)
-            #     for params in OPTIMIZER.param_groups:
-            #         lr = params['lr']
-            #         break
-            #     print("Learning rate %f" % lr)
-            #     print("Perform Evaluation on", TARGET, ", and Save Checkpoints...")
-            #     acc = []
-            #     for ver in vers:
-            #         name, data_set, issame = ver
-            #         accuracy, std, xnorm, best_threshold, roc_curve = perform_val(MULTI_GPU, DEVICE, EMBEDDING_SIZE,
-            #                                                                       BATCH_SIZE, BACKBONE, data_set,
-            #                                                                       issame)
-            #         buffer_val(writer, name, accuracy, std, xnorm, best_threshold, roc_curve, batch + 1)
-            #         print('[%s][%d]XNorm: %1.5f' % (name, batch + 1, xnorm))
-            #         print('[%s][%d]Accuracy-Flip: %1.5f+-%1.5f' % (name, batch + 1, accuracy, std))
-            #         print('[%s][%d]Best-Threshold: %1.5f' % (name, batch + 1, best_threshold))
-            #     #     acc.append(accuracy)
-
-            #     # save checkpoints per epoch
-            #     if need_save(acc, highest_acc):
-            #         if MULTI_GPU:
-            #             torch.save(BACKBONE.module.state_dict(), os.path.join(WORK_PATH,
-            #                                                                   "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-            #                                                                       BACKBONE_NAME, epoch + 1, batch + 1,
-            #                                                                       get_time())))
-            #             torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-            #                                                        "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-            #                                                            HEAD_NAME, epoch + 1, batch + 1, get_time())))
-            #         else:
-            #             torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
-            #                                                            "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-            #                                                                BACKBONE_NAME, epoch + 1, batch + 1,
-            #                                                                get_time())))
-            #             torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-            #                                                        "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-            #                                                            HEAD_NAME, epoch + 1, batch + 1, get_time())))
-            #     BACKBONE.train()  # set to training mode
-
+                # save checkpoints per epoch
+                if top1.avg > highest_acc:
+                    highest_acc = top1.avg
+                    print('saved model with highest acc: ', highest_acc)
+                    torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
+                    "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
+                        BACKBONE_NAME, epoch + 1, batch + 1, get_time())))
+                    torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
+                    "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
+                        HEAD_NAME, epoch + 1, batch + 1, get_time())))
+                
             batch += 1  # batch index
-
