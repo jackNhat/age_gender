@@ -43,7 +43,7 @@ def get_config(args):
     configuration['CSV_FILE'] = 'csv/FairFace.csv' # the csv file for training
     configuration['NUM_CLASS'] = 14
 
-    configuration['EVAL_PATH'] = '../eval/' # the dir for validation
+    configuration['EVAL_PATH'] = 'data/eval/' # the dir for validation
 
     assert args.net in ['IR_50', 'Res_50', 'MobileFaceNet']
 
