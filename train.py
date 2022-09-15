@@ -16,7 +16,7 @@ from head.metrics import SFaceLoss, Am_softmax, ArcFace, Softmax, CosFace, Spher
 from dataset import make_datasets, make_frame
 
 from util.utils import separate_irse_bn_paras, separate_resnet_bn_paras, separate_mobilefacenet_bn_paras
-from util.utils import AverageMeter, train_accuracy
+from util.utils import get_time, AverageMeter, train_accuracy
 
 
 def xavier_normal_(tensor, gain=1., mode='avg'):
@@ -157,9 +157,6 @@ if __name__ == '__main__':
     print("=" * 60)
     print(HEAD)
 
-    LOSS = nn.CrossEntropyLoss()
-
-
     if BACKBONE_NAME.find("IR") >= 0:
         backbone_paras_only_bn, backbone_paras_wo_bn = separate_irse_bn_paras(BACKBONE) # separate batch_norm parameters from others; do not do weight decay for batch_norm parameters to improve the generalizability
         _, head_paras_wo_bn = separate_irse_bn_paras(HEAD)
@@ -203,13 +200,10 @@ if __name__ == '__main__':
     DISP_FREQ = 200 # frequency to display training loss & acc
     batch = 0  # batch index
 
-    # intra_losses = AverageMeter()
-    # inter_losses = AverageMeter()
-    # Wyi_mean = AverageMeter()
-    # Wj_mean = AverageMeter()
-    # top1 = AverageMeter()
-
-    losses = AverageMeter()
+    intra_losses = AverageMeter()
+    inter_losses = AverageMeter()
+    Wyi_mean = AverageMeter()
+    Wj_mean = AverageMeter()
     top1 = AverageMeter()
 
     BACKBONE.train()  # set to training mode
@@ -228,28 +222,33 @@ if __name__ == '__main__':
             inputs = inputs.to(DEVICE)
             labels = labels.to(DEVICE).long()
             features = BACKBONE(inputs)
-            
-            outputs = HEAD(features, labels)
-            loss = LOSS(outputs, labels)
 
-            # outputs, loss, intra_loss, inter_loss, WyiX, WjX = HEAD(features, labels)
+            outputs, loss, intra_loss, inter_loss, WyiX, WjX = HEAD(features, labels)
 
             prec1 = train_accuracy(outputs.data, labels, topk=(1,))
             #embed()
-            losses.update(loss.data.item(), inputs.size(0))
+            intra_losses.update(intra_loss.data.item(), inputs.size(0))
+            inter_losses.update(inter_loss.data.item(), inputs.size(0))
+            Wyi_mean.update(WyiX.data.item(), inputs.size(0))
+            Wj_mean.update(WjX.data.item(), inputs.size(0))
             top1.update(prec1.data.item(), inputs.size(0))
 
-            # compute gradient and do SGD step
             OPTIMIZER.zero_grad()
             loss.backward()
             OPTIMIZER.step()
             
             # dispaly training loss & acc every DISP_FREQ (buffer for visualization)
             if ((batch + 1) % DISP_FREQ == 0) and batch != 0:
-                epoch_loss = losses.avg
+                intra_epoch_loss = intra_losses.avg
+                inter_epoch_loss = inter_losses.avg
+                Wyi_record = Wyi_mean.avg
+                Wj_record = Wj_mean.avg
                 epoch_acc = top1.avg
-                writer.add_scalar("Training/Training_Loss", epoch_loss, batch + 1)
-                writer.add_scalar("Training/Training_Accuracy", epoch_acc, batch + 1)
+                writer.add_scalar("intra_Loss", intra_epoch_loss, batch + 1)
+                writer.add_scalar("inter_Loss", inter_epoch_loss, batch + 1)
+                writer.add_scalar("Wyi", Wyi_record, batch + 1)
+                writer.add_scalar("Wj", Wj_record, batch + 1)
+                writer.add_scalar("Accuracy", epoch_acc, batch + 1)
 
                 batch_time = time.time() - last_time
                 last_time = time.time()
