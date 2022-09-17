@@ -270,7 +270,11 @@ if __name__ == '__main__':
                     torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
                     "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
                         BACKBONE_NAME, epoch + 1, batch + 1, get_time())))
+                    torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
+                    "Best_Backbone_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, batch + 1, get_time())))
                     torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
                     "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
                         HEAD_NAME, epoch + 1, batch + 1, get_time())))
+                    torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
+                    "Best_Head_checkpoint.pth".format(HEAD_NAME, epoch + 1, batch + 1, get_time())))
             batch += 1  # batch index
