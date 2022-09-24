@@ -179,9 +179,10 @@ if __name__ == '__main__':
     if BACKBONE_RESUME_ROOT and HEAD_RESUME_ROOT:
         print("=" * 60)
         print(BACKBONE_RESUME_ROOT,HEAD_RESUME_ROOT)
-        if os.path.isfile(BACKBONE_RESUME_ROOT) and os.path.isfile(HEAD_RESUME_ROOT):
+        if os.path.isfile(BACKBONE_RESUME_ROOT):
             print("Loading Backbone Checkpoint '{}'".format(BACKBONE_RESUME_ROOT))
             BACKBONE.load_state_dict(torch.load(BACKBONE_RESUME_ROOT))
+        elif os.path.isfile(HEAD_RESUME_ROOT):    
             print("Loading Head Checkpoint '{}'".format(HEAD_RESUME_ROOT))
             HEAD.load_state_dict(torch.load(HEAD_RESUME_ROOT))
         else:
@@ -267,14 +268,8 @@ if __name__ == '__main__':
                 if top1.avg > highest_acc:
                     highest_acc = top1.avg
                     print('saved model with highest acc: ', highest_acc)
-#                     torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
-#                     "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-#                         BACKBONE_NAME, epoch + 1, batch + 1, get_time())))
                     torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
-                    "Best_Backbone_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, batch + 1, get_time())))
-#                     torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-#                     "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-#                         HEAD_NAME, epoch + 1, batch + 1, get_time())))
+                    "Best_Backbone_{}_checkpoint.pth".format(BACKBONE_NAME)))
                     torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-                    "Best_Head_checkpoint.pth".format(HEAD_NAME, epoch + 1, batch + 1, get_time())))
+                    "Best_Head_{}_checkpoint.pth".format(HEAD_NAME)))
             batch += 1  # batch index
