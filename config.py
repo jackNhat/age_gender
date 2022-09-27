@@ -45,7 +45,7 @@ def get_config(args):
 
     configuration['EVAL_PATH'] = 'data/eval/' # the dir for validation
 
-    assert args.net in ['IR_50', 'Res_50', 'MobileFaceNet']
+    assert args.net in ['IR_50', 'IR_152', 'Res_50', 'MobileFaceNet']
 
 
     configuration['BACKBONE_NAME'] = args.net

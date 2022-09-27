@@ -9,7 +9,7 @@ import torch.optim as optim
 from tensorboardX import SummaryWriter
 
 from config import get_config
-from backbone.model_irse import IR_50, IR_101
+from backbone.model_irse import IR_50, IR_152
 from backbone.model_resnet import ResNet_50
 from backbone.model_mobilefacenet import MobileFaceNet
 from head.metrics import SFaceLoss, Am_softmax, ArcFace, Softmax, CosFace, SphereFace
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'IR_50': IR_50(INPUT_SIZE),
                     'Res_50': ResNet_50(INPUT_SIZE),
-                     'IR_101': IR_101(INPUT_SIZE),
+                     'IR_152': IR_152(INPUT_SIZE),
                      'MobileFaceNet': MobileFaceNet(EMBEDDING_SIZE)}
     BACKBONE = BACKBONE_DICT[BACKBONE_NAME]
     print("=" * 60)
@@ -179,9 +179,10 @@ if __name__ == '__main__':
     if BACKBONE_RESUME_ROOT and HEAD_RESUME_ROOT:
         print("=" * 60)
         print(BACKBONE_RESUME_ROOT,HEAD_RESUME_ROOT)
-        if os.path.isfile(BACKBONE_RESUME_ROOT) and os.path.isfile(HEAD_RESUME_ROOT):
+        if os.path.isfile(BACKBONE_RESUME_ROOT):
             print("Loading Backbone Checkpoint '{}'".format(BACKBONE_RESUME_ROOT))
             BACKBONE.load_state_dict(torch.load(BACKBONE_RESUME_ROOT))
+        elif os.path.isfile(HEAD_RESUME_ROOT):    
             print("Loading Head Checkpoint '{}'".format(HEAD_RESUME_ROOT))
             HEAD.load_state_dict(torch.load(HEAD_RESUME_ROOT))
         else:
@@ -267,14 +268,8 @@ if __name__ == '__main__':
                 if top1.avg > highest_acc:
                     highest_acc = top1.avg
                     print('saved model with highest acc: ', highest_acc)
-#                     torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
-#                     "Backbone_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-#                         BACKBONE_NAME, epoch + 1, batch + 1, get_time())))
                     torch.save(BACKBONE.state_dict(), os.path.join(WORK_PATH,
-                    "Best_Backbone_checkpoint.pth".format(BACKBONE_NAME, epoch + 1, batch + 1, get_time())))
-#                     torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-#                     "Head_{}_Epoch_{}_Batch_{}_Time_{}_checkpoint.pth".format(
-#                         HEAD_NAME, epoch + 1, batch + 1, get_time())))
+                    "Best_Backbone_{}_checkpoint.pth".format(BACKBONE_NAME)))
                     torch.save(HEAD.state_dict(), os.path.join(WORK_PATH,
-                    "Best_Head_checkpoint.pth".format(HEAD_NAME, epoch + 1, batch + 1, get_time())))
+                    "Best_Head_{}_checkpoint.pth".format(HEAD_NAME)))
             batch += 1  # batch index
