@@ -9,7 +9,7 @@ import torch.optim as optim
 from tensorboardX import SummaryWriter
 
 from config import get_config
-from backbone.model_irse import IR_50, IR_101
+from backbone.model_irse import IR_50, IR_152
 from backbone.model_resnet import ResNet_50
 from backbone.model_mobilefacenet import MobileFaceNet
 from head.metrics import SFaceLoss, Am_softmax, ArcFace, Softmax, CosFace, SphereFace
@@ -132,7 +132,7 @@ if __name__ == '__main__':
     #======= model & loss & optimizer =======#
     BACKBONE_DICT = {'IR_50': IR_50(INPUT_SIZE),
                     'Res_50': ResNet_50(INPUT_SIZE),
-                     'IR_101': IR_101(INPUT_SIZE),
+                     'IR_152': IR_152(INPUT_SIZE),
                      'MobileFaceNet': MobileFaceNet(EMBEDDING_SIZE)}
     BACKBONE = BACKBONE_DICT[BACKBONE_NAME]
     print("=" * 60)
